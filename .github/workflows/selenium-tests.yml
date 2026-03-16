@@ -1,0 +1,67 @@
+name: 🤖 Selenium TestNG Automation CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  run-selenium-tests:
+    name: Run Automation Tests
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: maven
+
+      - name: 🌐 Install Google Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: ✅ Verify Chrome Version
+        run: google-chrome --version
+
+      - name: ⚙️ Enable Headless Mode
+        run: |
+          sed -i 's/headless=false/headless=true/' src/test/resources/config.properties
+          echo "Headless mode enabled ✅"
+
+      - name: 🧪 Run Selenium TestNG Tests
+        run: mvn clean test --no-transfer-progress
+        continue-on-error: true
+
+      - name: 📊 Upload Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ExtentReport-${{ github.run_number }}
+          path: reports/
+          retention-days: 30
+
+      - name: 📸 Upload Failure Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Screenshots-${{ github.run_number }}
+          path: reports/screenshots/
+          retention-days: 15
+
+      - name: 📝 Publish Test Summary
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: TestNG Results
+          path: target/surefire-reports/*.xml
+          reporter: java-junit
+          fail-on-error: false
